@@ -1,0 +1,52 @@
+---
+# Default configuration for BERT on IMDB dataset
+# Inspired by TextAttack's default hyperparameters (re-implemented)
+
+# Model configuration
+model_name_or_path: bert-base-uncased
+num_labels: 2
+
+# Training hyperparameters
+num_epochs: 5
+learning_rate: 2.0e-5
+weight_decay: 0.01
+per_device_train_batch_size: 16
+per_device_eval_batch_size: 32
+max_length: 128
+
+# Learning rate scheduler
+num_warmup_steps: 500
+lr_scheduler_type: linear
+
+# Training strategy
+gradient_accumulation_steps: 1
+eval_strategy: epoch
+save_strategy: best
+
+# Logging
+logging_steps: 100
+logging_first_step: true
+
+# Checkpointing
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: eval_accuracy
+greater_is_better: true
+
+# Output directories
+output_dir: outputs/imdb_bert
+
+# Mixed precision training (disabled by default)
+bf16: false
+fp16: false
+
+# Reproducibility
+seed: 42
+
+# Data loading
+dataloader_num_workers: 0
+dataloader_pin_memory: true
+
+# Optional features (disabled by default)
+use_tensorboard: false
+use_wandb: false

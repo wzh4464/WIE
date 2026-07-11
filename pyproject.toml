@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wie"
+version = "0.1.0"
+description = "WIE: Window-level Influence Estimator (per-epoch SGD influence / label-flip detection)"
+requires-python = ">=3.11"
+authors = [{ name = "Anonymous" }]
+
+# Runtime dependencies are provided by the pixi environment; this section is
+# intentionally left minimal so `pip install -e .` only registers the package.
+dependencies = []
+
+[project.scripts]
+wie-infl = "wie.infl.cli:main"
+wie-train = "wie.training.train:TrainManager.main"
+wie-cleanse = "wie.training.exp_influence_cleansing:main"
+wie-train-imdb = "wie.cli.train_imdb:main"
+wie-eval-imdb = "wie.cli.eval_imdb:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["wie*"]

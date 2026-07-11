@@ -1,0 +1,100 @@
+# Root project metadata
+[project]
+authors = ["Anonymous"]
+name = "wie"
+version = "0.1.0"
+channels = ["pytorch", "nvidia", "conda-forge"]
+platforms = ["osx-arm64", "linux-64"]
+
+# ------------------------
+# 默认环境依赖（核心运行）
+# ------------------------
+[dependencies]
+python = "3.11.*"
+pytorch = "2.4.*"
+torchvision = "*"
+matplotlib = "*"
+numpy = "*"
+pandas = "*"
+scikit-learn = "*"
+parameterized = "*"
+ipykernel = "*"
+gputil = { channel = "conda-forge" }
+datasets = ">=2.19.2,<5"
+transformers = ">=4.33.3,<5"
+wandb = ">=0.21.1,<0.22"
+sympy = "1.12.*"                     # pin to avoid breakage in torch/transformers
+dvc = ">=3.67.1,<4"
+pip = ">=26.1.2,<27"
+
+[pypi-dependencies]
+torchaudio = "*"
+emnist = "==0.0"
+tqdm = "==4.67.1"
+pykeops = ">=2.3, <3"
+geomloss = ">=0.2.6, <0.3"
+
+# ------------------------
+# 开发环境依赖（只在 dev 用）
+# ------------------------
+[feature.dev.dependencies]
+python-lsp-server = ">=1.13.1,<2"
+autopep8 = ">=2.0.4,<3"
+flake8 = ">=7.1.2,<8"
+
+[feature.dev.pypi-dependencies]
+ruff = "*"
+pre-commit = "*"
+yamllint = "*"
+sphinx = "==8.2.3"
+sphinx-autodoc2 = "==0.5.0"
+docutils = "==0.21.2"
+pyflowchart = "==0.3.1"
+torch-tb-profiler = "==0.4.3"
+
+# ------------------------
+# 环境定义
+# ------------------------
+[environments]
+default = []  # 默认：只启用核心依赖
+dev = ["dev"] # 开发：启用 feature.dev (包含 pre-commit, ruff, flake8 等工具)
+
+# ------------------------
+# 常用任务
+# ------------------------
+[tasks]
+# Editable install of the `wie` package so imports work without cwd/sys.path hacks
+install = "python -m pip install -e . --no-build-isolation"
+format = "ruff check src tests scripts --fix"
+lint = "flake8 src tests scripts --exclude .venv,submodules,outputs,logs,.pixi,__pycache__ --count --show-source --statistics"
+rufffmt = "ruff format src tests scripts"
+hooks = "pre-commit install"
+hooks-run = "pre-commit run --all-files"
+hooks-update = "pre-commit autoupdate"
+# Staged-file variants for pre-commit
+format_files = "ruff check --fix"
+rufffmt_files = "ruff format"
+lint_files = "flake8"
+yamllint = "yamllint -s -c .yamllint ."
+yamllint_files = "yamllint -s -c .yamllint"
+
+# ------------------------
+# 开发环境专用任务（需要在 dev 环境中运行）
+# ------------------------
+# 使用方式: pixi run --environment dev dev-format
+dev-format = "ruff check src tests scripts --fix"
+dev-lint = "flake8 src tests scripts --exclude .venv,submodules,outputs,logs,.pixi,__pycache__ --count --show-source --statistics"
+dev-rufffmt = "ruff format src tests scripts"
+dev-hooks-run = "pre-commit run --all-files"
+dev-check-all = "ruff check src tests scripts --fix && ruff format src tests scripts && flake8 src tests scripts --exclude .venv,submodules,outputs,logs,.pixi,__pycache__ --count --show-source --statistics"
+
+# Test task runs after an editable install so imports resolve without cwd hacks
+[tasks.test]
+cmd = "python -m unittest discover -s tests -p 'test_*.py' -v"
+depends-on = ["install"]
+
+# ------------------------
+# 平台专用依赖
+# ------------------------
+[target.linux-64.dependencies]
+pytorch-cuda = "12.4.*"

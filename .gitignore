@@ -1,0 +1,34 @@
+.DS_Store
+*.log
+*.err
+*.pyc
+*.dat
+**/adult_*
+**/emnist_*
+**/cifar_*
+*.npz
+.vscode/settings.json
+**/mnist_*
+**/20news_*
+*.lock
+!pixi.lock
+*.pkl
+*.png
+*.pt
+.venv*
+*.json
+*result*
+*.bin
+vocab.txt
+**/outputs/**
+output/**
+*.npy
+
+# pixi environments
+.pixi
+*.egg-info
+
+# DVC-tracked data dir
+/data/
+/outputs
+/data
