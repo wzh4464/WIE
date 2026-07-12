@@ -364,6 +364,35 @@ class WieAllEpochsInfluenceCalculator(InfluenceCalculator):
         hvp = [hh.to(dtype=v[0].dtype, device=v[0].device) for hh in hvp]
         return hvp
 
+    def _hvp(
+        self,
+        model: torch.nn.Module,
+        x: torch.Tensor,
+        y: torch.Tensor,
+        v: List[torch.Tensor],
+    ) -> List[torch.Tensor]:
+        """Exact Hessian-vector product ``H v`` via Pearlmutter double-backprop.
+
+        Identical to ``wie_window_base._hvp`` so the two calculators share one HVP
+        (no finite-difference, no Tikhonov damping). ``v`` may be float64 while the
+        model is float32; ``grad_outputs`` is cast to the param dtype and the
+        result cast back, matching the old finite-difference helper.
+        """
+        params = [p for p in model.parameters()]
+        assert len(params) == len(v), "v must align with model parameters"
+        out_dtype, out_device = v[0].dtype, v[0].device
+        v_cast = [vv.to(dtype=p.dtype, device=p.device) for vv, p in zip(v, params)]
+        model.zero_grad()
+        out = model(x)
+        loss = self.loss_fn(out, y)
+        grads = torch.autograd.grad(loss, params, create_graph=True)
+        hv = torch.autograd.grad(grads, params, grad_outputs=v_cast, retain_graph=False)
+        hv = [h.detach() for h in hv]
+        if self.alpha > 0:
+            hv = [h + self.alpha * vc for h, vc in zip(hv, v_cast)]
+        model.zero_grad()
+        return [h.to(dtype=out_dtype, device=out_device) for h in hv]
+
     def _safe_update_u(
         self,
         m_step: torch.nn.Module,
@@ -374,29 +403,26 @@ class WieAllEpochsInfluenceCalculator(InfluenceCalculator):
         step_log_prefix: str,
     ) -> List[torch.Tensor]:
         u_prev = [uu.clone() for uu in u]
-        # try:
-        hvp = self._finite_diff_hvp(m_step, x_batch, y_batch, u)
-        sn_u = sum_norm(u)
-        u_norm = float(sn_u.item() if isinstance(sn_u, torch.Tensor) else sn_u)
-        sn_hu = sum_norm(hvp)
-        hu_norm = float(sn_hu.item() if isinstance(sn_hu, torch.Tensor) else sn_hu)
-        lambda_reg = 0.0
-        if hu_norm > 0:
-            lambda_reg = 0.05 * (u_norm / (hu_norm + 1e-12))
-        hvp_reg = [hv + lambda_reg * uu for hv, uu in zip(hvp, u)]
-        new_u: List[torch.Tensor] = []
-        for j in range(len(u)):
-            new_u_val = u[j] - lr * hvp_reg[j]
-            if torch.isnan(new_u_val).any() or torch.isinf(new_u_val).any():
-                new_u.append(u_prev[j])
-            else:
-                new_u.append(new_u_val)
-        return new_u
-        # except Exception as e:
-        #     self.logger.warning(
-        #         f"{step_log_prefix}: Error during HVP update: {e}. Skipping u update."
-        #     )
-            # return u_prev
+        try:
+            # Unified with wie_window_base: exact Pearlmutter HVP, clean linear
+            # propagator P = I - lr*H. Removes the old central finite-difference
+            # and the undocumented 0.05*||u||/||Hu|| Tikhonov damping, which made
+            # P nonlinear in u and diverged from the paper's operator (and from
+            # wie_last/first/middle, which already use exact Pearlmutter).
+            hvp = self._hvp(m_step, x_batch, y_batch, u)
+            new_u: List[torch.Tensor] = []
+            for j in range(len(u)):
+                new_u_val = u[j] - lr * hvp[j]
+                if torch.isnan(new_u_val).any() or torch.isinf(new_u_val).any():
+                    new_u.append(u_prev[j])
+                else:
+                    new_u.append(new_u_val)
+            return new_u
+        except Exception as e:
+            self.logger.warning(
+                f"{step_log_prefix}: Error during HVP update: {e}. Skipping u update."
+            )
+            return u_prev
 
     def _u_dtype(self) -> torch.dtype:
         """Select a safe dtype for u on the current device.

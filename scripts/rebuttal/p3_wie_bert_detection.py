@@ -2,7 +2,7 @@
 apples comparison with TracIn (52.5%). Ranks samples by summed WIE influence
 (both sign directions reported); precision@k vs the 40% relabel indices."""
 import glob, os, json, numpy as np, pandas as pd
-import os; base = os.path.join(os.environ.get("WIE_OUTPUTS", "outputs"), "bert_w5_detect")
+base = "outputs/bert_w5_detect"
 d = pd.read_csv(glob.glob(base + "/infl_wie_all_epochs_relabel_040_pct_*.csv")[0])
 cols = sorted([c for c in d.columns if c.startswith("influence_epoch_")],
               key=lambda c: int(c.rsplit("_", 1)[1]))
