@@ -62,24 +62,39 @@ class LOOAllEpochsInfluenceCalculator(InfluenceCalculator):
         """Find main model and counterfactual model files"""
         seed_suffix = f"{self.seed:03d}"
 
+        # Relabel runs prefix every checkpoint with e.g. "relabel_010_pct_";
+        # try the prefixed name first, then the bare name.
+        prefixes = [""]
+        rp = getattr(self, "relabel_percentage", None)
+        if rp:
+            prefixes = [f"relabel_{int(rp):03d}_pct_", ""]
+
+        def _first_existing(names):
+            for nm in names:
+                fp = os.path.join(self.records_dir, nm)
+                if os.path.exists(fp):
+                    return fp
+            return None
+
         # Main model files
         main_files = {}
         for epoch in range(self.num_epoch):
-            pattern = f"epoch_{epoch}_{seed_suffix}.pt"
-            file_path = os.path.join(self.records_dir, pattern)
-            if os.path.exists(file_path):
-                main_files[epoch] = file_path
+            fp = _first_existing(
+                [f"{p}epoch_{epoch}_{seed_suffix}.pt" for p in prefixes]
+            )
+            if fp:
+                main_files[epoch] = fp
 
         # Counterfactual model files
         cf_files = defaultdict(dict)
         for epoch in range(self.num_epoch):
             for sample_idx in range(self.n_tr):
-                pattern = (
-                    f"counterfactual_{sample_idx:04d}_epoch_{epoch}_{seed_suffix}.pt"
+                fp = _first_existing(
+                    [f"{p}counterfactual_{sample_idx:04d}_epoch_{epoch}_{seed_suffix}.pt"
+                     for p in prefixes]
                 )
-                file_path = os.path.join(self.records_dir, pattern)
-                if os.path.exists(file_path):
-                    cf_files[sample_idx][epoch] = file_path
+                if fp:
+                    cf_files[sample_idx][epoch] = fp
 
         self.logger.info(f"Found {len(main_files)} main model epoch files")
         self.logger.info(f"Found {len(cf_files)} samples with counterfactual files")

@@ -149,32 +149,33 @@ def load_data(
 
 
 def get_input_dim(x: torch.Tensor, model_type: str) -> Union[int, Tuple[int, ...]]:
-    if model_type == "cnn":
-        if x.dim() == 4:
-            return x.shape[1:]
-        elif x.dim() == 3:
-            img_size = x.shape[1]
-            return (1, img_size, img_size)
-        elif x.dim() == 2:
-            num_features = x.shape[1]
-            img_size = int(np.sqrt(num_features))
-            if img_size * img_size != num_features:
-                raise ValueError(
-                    f"Cannot infer image dimensions for CNN from flattened input of size {num_features}"
-                )
-            return (1, img_size, img_size)
-        else:
-            raise ValueError(f"Unsupported input dimension for CNN: {x.dim()}")
-    elif model_type in ["logreg", "dnn"]:
+    # Flat models (tabular / MLP) consume a single feature dimension.
+    if model_type in ["logreg", "dnn"]:
         if x.dim() > 2:
             return x.shape[1:].numel()
         else:
             return x.shape[1]
+    # All other (image) models -- cnn, resnet*, tinyvit*, vit, mobilenet* --
+    # need the (C, H, W) tuple. Previously only "cnn" got this treatment, so
+    # ViT/ResNet influence scoring failed with "input_dim must be (C, H, W)".
+    if x.dim() == 4:
+        return x.shape[1:]
+    elif x.dim() == 3:
+        img_size = x.shape[1]
+        return (1, img_size, img_size)
+    elif x.dim() == 2:
+        num_features = x.shape[1]
+        img_size = int(np.sqrt(num_features))
+        if img_size * img_size != num_features:
+            raise ValueError(
+                f"Cannot infer image dimensions for {model_type} from flattened "
+                f"input of size {num_features}"
+            )
+        return (1, img_size, img_size)
     else:
-        if x.dim() > 2:
-            return x.shape[1:].numel()
-        else:
-            return x.shape[1]
+        raise ValueError(
+            f"Unsupported input dimension for {model_type}: {x.dim()}"
+        )
 
 
 def compute_gradient(
